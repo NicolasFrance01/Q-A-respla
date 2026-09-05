@@ -15,14 +15,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'GET') {
       const presentationId = req.query.presentationId as string;
-      const slideId = req.query.slideId as string;
       let query = 'SELECT * FROM slide_responses';
       const params: any[] = [];
 
-      if (presentationId && slideId) {
-        query += ' WHERE presentation_id = $1 AND slide_id = $2';
-        params.push(presentationId, slideId);
-      } else if (presentationId) {
+      if (presentationId) {
         query += ' WHERE presentation_id = $1';
         params.push(presentationId);
       }
@@ -46,8 +42,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'POST') {
       const { id, presentationId, slideId, content, upvotes, createdAt, isAnswered, isPinned, authorAlias } = req.body;
       await pool.query(
-        'INSERT INTO slide_responses (id, presentation_id, slide_id, content, upvotes, created_at, is_answered, is_pinned, author_alias) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-        [id, presentationId, slideId, content, upvotes || 1, createdAt || Date.now(), isAnswered || false, isPinned || false, authorAlias || 'Anónimo']
+        'INSERT INTO slide_responses (id, presentation_id, slide_id, content, upvotes, created_at, is_answered, is_pinned, author_alias) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (id) DO UPDATE SET content = EXCLUDED.content',
+        [id, presentationId, slideId || '', content, upvotes || 1, createdAt || Date.now(), isAnswered || false, isPinned || false, authorAlias || 'Anónimo']
       );
       return res.status(201).json({ success: true });
     }

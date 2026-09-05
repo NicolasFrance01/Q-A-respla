@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Sparkles, X, Layers, Send } from 'lucide-react';
+import { Plus, Trash2, Sparkles, X, Layers } from 'lucide-react';
 import { sessionStore, QAPresentation } from '../services/sessionStore';
 
 interface PresentationCreatorProps {
@@ -66,36 +66,39 @@ export const PresentationCreator: React.FC<PresentationCreatorProps> = ({
       left: 0,
       right: 0,
       bottom: 0,
-      background: 'rgba(5, 8, 16, 0.85)',
+      background: 'rgba(5, 8, 16, 0.88)',
       backdropFilter: 'blur(12px)',
       display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent: 'flex-start',
+      overflowY: 'auto',
       zIndex: 1000,
-      padding: '24px'
+      padding: '24px 16px'
     }}>
       <div className="glass-panel animate-pop glow-effect" style={{
         width: '100%',
         maxWidth: '680px',
-        maxHeight: '90vh',
+        margin: 'auto 0',
         display: 'flex',
         flexDirection: 'column',
-        padding: '32px',
+        padding: '28px',
         position: 'relative',
         background: 'var(--bg-secondary)',
-        border: '1px solid var(--border-glow)'
+        border: '1px solid var(--border-glow)',
+        boxSizing: 'border-box'
       }}>
         <button
           onClick={onClose}
           style={{
             position: 'absolute',
-            top: '20px',
-            right: '20px',
+            top: '16px',
+            right: '16px',
             background: 'var(--bg-tertiary)',
             border: 'none',
             color: 'var(--text-secondary)',
-            width: '36px',
-            height: '36px',
+            width: '34px',
+            height: '34px',
             borderRadius: 'var(--radius-full)',
             display: 'flex',
             alignItems: 'center',
@@ -106,21 +109,21 @@ export const PresentationCreator: React.FC<PresentationCreatorProps> = ({
           <X size={18} />
         </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-          <img src="/logo.png" alt="Resplandece Logo" style={{ width: '40px', height: '40px', borderRadius: '50%' }} />
-          <img src="/JEA.png" alt="JEA Logo" style={{ height: '32px', objectFit: 'contain' }} />
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>Crear Presentación Q&A Anónimas</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+          <img src="/logo.png" alt="Resplandece Logo" style={{ width: '38px', height: '38px', borderRadius: '50%' }} />
+          <img src="/JEA.png" alt="JEA Logo" style={{ height: '30px', objectFit: 'contain' }} />
+          <h2 style={{ fontSize: '1.3rem', fontWeight: 800 }}>Crear Presentación Q&A Anónimas</h2>
         </div>
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
           Crea tus diapositivas con preguntas interactivas. La audiencia responderá en tiempo real desde el código QR.
         </p>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto', paddingRight: '6px' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
           {/* Title & Code */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px', gap: '14px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '4px' }}>
                 Título de la Presentación *
               </label>
               <input
@@ -131,19 +134,19 @@ export const PresentationCreator: React.FC<PresentationCreatorProps> = ({
                 onChange={(e) => setTitle(e.target.value)}
                 style={{
                   width: '100%',
-                  padding: '10px 14px',
+                  padding: '9px 12px',
                   borderRadius: 'var(--radius-sm)',
                   background: 'var(--bg-primary)',
                   border: '1px solid var(--border-color)',
                   color: 'var(--text-primary)',
-                  fontSize: '0.9rem',
+                  fontSize: '0.875rem',
                   outline: 'none'
                 }}
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '4px' }}>
                 Código (Opcional)
               </label>
               <input
@@ -153,12 +156,12 @@ export const PresentationCreator: React.FC<PresentationCreatorProps> = ({
                 onChange={(e) => setCode(e.target.value)}
                 style={{
                   width: '100%',
-                  padding: '10px 14px',
+                  padding: '9px 12px',
                   borderRadius: 'var(--radius-sm)',
                   background: 'var(--bg-primary)',
                   border: '1px solid var(--border-color)',
                   color: 'var(--text-primary)',
-                  fontSize: '0.9rem',
+                  fontSize: '0.875rem',
                   outline: 'none',
                   textTransform: 'uppercase'
                 }}
@@ -170,8 +173,8 @@ export const PresentationCreator: React.FC<PresentationCreatorProps> = ({
 
           {/* Slides List */}
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', fontWeight: 700 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 700 }}>
                 <Layers size={16} color="var(--accent-primary)" />
                 <span>Diapositivas de la Presentación ({slides.length})</span>
               </div>
@@ -180,37 +183,37 @@ export const PresentationCreator: React.FC<PresentationCreatorProps> = ({
                 type="button"
                 onClick={handleAddSlide}
                 style={{
-                  padding: '6px 14px',
+                  padding: '5px 12px',
                   borderRadius: 'var(--radius-full)',
                   background: 'var(--bg-accent-subtle)',
                   border: '1px solid var(--border-glow)',
                   color: 'var(--accent-primary)',
-                  fontSize: '0.8rem',
+                  fontSize: '0.75rem',
                   fontWeight: 700,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px'
+                  gap: '4px'
                 }}
               >
                 <Plus size={14} /> Añadir Diapositiva
               </button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
               {slides.map((slide, idx) => (
                 <div key={idx} style={{
-                  padding: '16px',
+                  padding: '14px',
                   borderRadius: 'var(--radius-md)',
                   background: 'var(--bg-primary)',
                   border: '1px solid var(--border-color)',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '10px'
+                  gap: '8px'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <img src="/llama.png" alt="Llama" style={{ width: '16px', height: '16px', objectFit: 'contain' }} />
+                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <img src="/llama.png" alt="Llama" style={{ width: '14px', height: '14px', objectFit: 'contain' }} />
                       Diapositiva #{idx + 1}
                     </div>
 
@@ -229,7 +232,7 @@ export const PresentationCreator: React.FC<PresentationCreatorProps> = ({
                           fontSize: '0.75rem'
                         }}
                       >
-                        <Trash2 size={14} /> Eliminar
+                        <Trash2 size={12} /> Eliminar
                       </button>
                     )}
                   </div>
@@ -242,12 +245,12 @@ export const PresentationCreator: React.FC<PresentationCreatorProps> = ({
                     onChange={(e) => handleUpdateSlidePrompt(idx, e.target.value)}
                     style={{
                       width: '100%',
-                      padding: '10px 12px',
+                      padding: '8px 10px',
                       borderRadius: 'var(--radius-sm)',
                       background: 'var(--bg-secondary)',
                       border: '1px solid var(--border-color)',
                       color: 'var(--text-primary)',
-                      fontSize: '0.9rem',
+                      fontSize: '0.85rem',
                       outline: 'none',
                       fontWeight: 600
                     }}
@@ -260,12 +263,12 @@ export const PresentationCreator: React.FC<PresentationCreatorProps> = ({
                     onChange={(e) => handleUpdateSlideDescription(idx, e.target.value)}
                     style={{
                       width: '100%',
-                      padding: '8px 12px',
+                      padding: '6px 10px',
                       borderRadius: 'var(--radius-sm)',
                       background: 'var(--bg-secondary)',
                       border: '1px solid var(--border-color)',
                       color: 'var(--text-secondary)',
-                      fontSize: '0.8rem',
+                      fontSize: '0.75rem',
                       outline: 'none'
                     }}
                   />
@@ -274,17 +277,18 @@ export const PresentationCreator: React.FC<PresentationCreatorProps> = ({
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
             <button
               type="button"
               onClick={onClose}
               style={{
-                padding: '10px 20px',
+                padding: '9px 18px',
                 borderRadius: 'var(--radius-sm)',
                 background: 'var(--bg-primary)',
                 border: '1px solid var(--border-color)',
                 color: 'var(--text-secondary)',
                 fontWeight: 600,
+                fontSize: '0.85rem',
                 cursor: 'pointer'
               }}
             >
@@ -295,11 +299,12 @@ export const PresentationCreator: React.FC<PresentationCreatorProps> = ({
               type="submit"
               className="gradient-btn"
               style={{
-                padding: '10px 24px',
+                padding: '9px 20px',
                 borderRadius: 'var(--radius-sm)',
+                fontSize: '0.85rem',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px'
+                gap: '6px'
               }}
             >
               <Sparkles size={16} /> Lanzar Presentación en Vivo

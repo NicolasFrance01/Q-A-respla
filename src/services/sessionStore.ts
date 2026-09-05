@@ -30,15 +30,16 @@ export type Question = SlideResponse;
 export type QASession = QAPresentation;
 
 const STORAGE_KEYS = {
-  PRESENTATIONS: 'respla_presentations_v2',
-  ACTIVE_PRESENTATION_ID: 'respla_active_presentation_id_v2',
-  RESPONSES: 'respla_slide_responses_v2',
-  USER_VOTES: 'respla_user_votes_v2',
+  PRESENTATIONS: 'respla_presentations_v3',
+  ACTIVE_PRESENTATION_ID: 'respla_active_presentation_id_v3',
+  RESPONSES: 'respla_slide_responses_v3',
+  USER_VOTES: 'respla_user_votes_v3',
 };
 
-const syncChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('respla_qa_sync_v2') : null;
+const syncChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('respla_qa_sync_v3') : null;
 
-// Initial clean default presentation
+let isPollingStarted = false;
+
 const initialDefaultPresentation: QAPresentation = {
   id: 'pres-1',
   title: 'Encuentro JEA 2026',
@@ -69,7 +70,15 @@ export const sessionStore = {
     if (!localStorage.getItem(STORAGE_KEYS.USER_VOTES)) {
       localStorage.setItem(STORAGE_KEYS.USER_VOTES, JSON.stringify([]));
     }
+
     this.syncFromRemote();
+
+    if (!isPollingStarted) {
+      isPollingStarted = true;
+      setInterval(() => {
+        this.syncFromRemote();
+      }, 1500);
+    }
   },
 
   notifySync() {
@@ -89,7 +98,8 @@ export const sessionStore = {
         }
       }
 
-      const resResp = await fetch('/api/questions');
+      const activeId = this.getActivePresentationId();
+      const resResp = await fetch(`/api/questions?presentationId=${activeId}`);
       if (resResp.ok) {
         const remoteResp: SlideResponse[] = await resResp.json();
         if (remoteResp) {
@@ -98,7 +108,7 @@ export const sessionStore = {
       }
       this.notifySync();
     } catch {
-      // offline / local storage fallback
+      // offline fallback
     }
   },
 
@@ -119,11 +129,14 @@ export const sessionStore = {
   setActivePresentationId(id: string) {
     localStorage.setItem(STORAGE_KEYS.ACTIVE_PRESENTATION_ID, id);
     this.notifySync();
+    this.syncFromRemote();
   },
 
   getActivePresentation(): QAPresentation | undefined {
     const activeId = this.getActivePresentationId();
-    return this.getPresentations().find(p => p.id === activeId);
+    const presentations = this.getPresentations();
+    // Search by ID or Code or fallback to first
+    return presentations.find(p => p.id === activeId || p.code === activeId) || presentations[0];
   },
 
   createPresentation(title: string, slides: { prompt: string; description?: string }[], customCode?: string): QAPresentation {
@@ -252,6 +265,8 @@ export const sessionStore = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newResp)
+    }).then(() => {
+      this.syncFromRemote();
     }).catch(() => {});
 
     return newResp;

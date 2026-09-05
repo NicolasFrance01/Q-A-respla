@@ -60,7 +60,7 @@ export const ParticipantSlideView: React.FC<ParticipantSlideViewProps> = ({
   };
 
   const currentSlideResponses = responses
-    .filter(r => r.slideId === currentSlide?.id)
+    .filter(r => r.presentationId === presentation.id && (!currentSlide?.id || r.slideId === currentSlide?.id || !r.slideId || presentation.slides.length <= 1))
     .sort((a, b) => b.upvotes - a.upvotes);
 
   return (
