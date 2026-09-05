@@ -14,34 +14,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await initDb();
 
     if (req.method === 'GET') {
-      const result = await pool.query('SELECT * FROM sessions ORDER BY created_at DESC');
-      const sessions = result.rows.map(r => ({
+      const result = await pool.query('SELECT * FROM presentations ORDER BY created_at DESC');
+      const presentations = result.rows.map(r => ({
         id: r.id,
         title: r.title,
         code: r.code,
         createdAt: Number(r.created_at),
-        isAcceptingQuestions: r.is_accepting_questions,
-        spotlightQuestionId: r.spotlight_question_id
+        activeSlideIndex: r.active_slide_index ?? 0,
+        status: r.status || 'active',
+        slides: typeof r.slides === 'string' ? JSON.parse(r.slides) : r.slides
       }));
-      return res.status(200).json(sessions);
+      return res.status(200).json(presentations);
     }
 
     if (req.method === 'POST') {
-      const { id, title, code, createdAt, isAcceptingQuestions, spotlightQuestionId } = req.body;
+      const { id, title, code, createdAt, activeSlideIndex, status, slides } = req.body;
       await pool.query(
-        'INSERT INTO sessions (id, title, code, created_at, is_accepting_questions, spotlight_question_id) VALUES ($1, $2, $3, $4, $5, $6)',
-        [id, title, code, createdAt || Date.now(), isAcceptingQuestions ?? true, spotlightQuestionId || null]
+        'INSERT INTO presentations (id, title, code, created_at, active_slide_index, status, slides) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+        [id, title, code, createdAt || Date.now(), activeSlideIndex || 0, status || 'active', JSON.stringify(slides || [])]
       );
       return res.status(201).json({ success: true });
     }
 
     if (req.method === 'PATCH') {
-      const { id, isAcceptingQuestions, spotlightQuestionId } = req.body;
-      if (isAcceptingQuestions !== undefined) {
-        await pool.query('UPDATE sessions SET is_accepting_questions = $1 WHERE id = $2', [isAcceptingQuestions, id]);
+      const { id, activeSlideIndex, status, slides } = req.body;
+      if (activeSlideIndex !== undefined) {
+        await pool.query('UPDATE presentations SET active_slide_index = $1 WHERE id = $2', [activeSlideIndex, id]);
       }
-      if (spotlightQuestionId !== undefined) {
-        await pool.query('UPDATE sessions SET spotlight_question_id = $1 WHERE id = $2', [spotlightQuestionId, id]);
+      if (status !== undefined) {
+        await pool.query('UPDATE presentations SET status = $1 WHERE id = $2', [status, id]);
+      }
+      if (slides !== undefined) {
+        await pool.query('UPDATE presentations SET slides = $1 WHERE id = $2', [JSON.stringify(slides), id]);
       }
       return res.status(200).json({ success: true });
     }

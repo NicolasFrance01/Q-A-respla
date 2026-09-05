@@ -14,20 +14,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await initDb();
 
     if (req.method === 'GET') {
-      const sessionId = req.query.sessionId as string;
-      let query = 'SELECT * FROM questions';
+      const presentationId = req.query.presentationId as string;
+      const slideId = req.query.slideId as string;
+      let query = 'SELECT * FROM slide_responses';
       const params: any[] = [];
 
-      if (sessionId) {
-        query += ' WHERE session_id = $1';
-        params.push(sessionId);
+      if (presentationId && slideId) {
+        query += ' WHERE presentation_id = $1 AND slide_id = $2';
+        params.push(presentationId, slideId);
+      } else if (presentationId) {
+        query += ' WHERE presentation_id = $1';
+        params.push(presentationId);
       }
       query += ' ORDER BY created_at DESC';
 
       const result = await pool.query(query, params);
-      const questions = result.rows.map(r => ({
+      const responses = result.rows.map(r => ({
         id: r.id,
-        sessionId: r.session_id,
+        presentationId: r.presentation_id,
+        slideId: r.slide_id,
         content: r.content,
         upvotes: r.upvotes,
         createdAt: Number(r.created_at),
@@ -35,14 +40,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         isPinned: r.is_pinned,
         authorAlias: r.author_alias
       }));
-      return res.status(200).json(questions);
+      return res.status(200).json(responses);
     }
 
     if (req.method === 'POST') {
-      const { id, sessionId, content, upvotes, createdAt, isAnswered, isPinned, authorAlias } = req.body;
+      const { id, presentationId, slideId, content, upvotes, createdAt, isAnswered, isPinned, authorAlias } = req.body;
       await pool.query(
-        'INSERT INTO questions (id, session_id, content, upvotes, created_at, is_answered, is_pinned, author_alias) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-        [id, sessionId, content, upvotes || 1, createdAt || Date.now(), isAnswered || false, isPinned || false, authorAlias || 'Anónimo']
+        'INSERT INTO slide_responses (id, presentation_id, slide_id, content, upvotes, created_at, is_answered, is_pinned, author_alias) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+        [id, presentationId, slideId, content, upvotes || 1, createdAt || Date.now(), isAnswered || false, isPinned || false, authorAlias || 'Anónimo']
       );
       return res.status(201).json({ success: true });
     }
@@ -51,21 +56,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { id, action } = req.body;
       if (action === 'upvote') {
         const delta = req.body.delta || 1;
-        await pool.query('UPDATE questions SET upvotes = GREATEST(0, upvotes + $1) WHERE id = $2', [delta, id]);
+        await pool.query('UPDATE slide_responses SET upvotes = GREATEST(0, upvotes + $1) WHERE id = $2', [delta, id]);
       } else if (action === 'toggleAnswered') {
-        await pool.query('UPDATE questions SET is_answered = NOT is_answered WHERE id = $1', [id]);
+        await pool.query('UPDATE slide_responses SET is_answered = NOT is_answered WHERE id = $1', [id]);
       } else if (action === 'togglePinned') {
-        await pool.query('UPDATE questions SET is_pinned = NOT is_pinned WHERE id = $1', [id]);
+        await pool.query('UPDATE slide_responses SET is_pinned = NOT is_pinned WHERE id = $1', [id]);
       }
       return res.status(200).json({ success: true });
     }
 
     if (req.method === 'DELETE') {
-      const { id, sessionId } = req.body || req.query;
+      const { id } = req.body || req.query;
       if (id) {
-        await pool.query('DELETE FROM questions WHERE id = $1', [id]);
-      } else if (sessionId) {
-        await pool.query('DELETE FROM questions WHERE session_id = $1', [sessionId]);
+        await pool.query('DELETE FROM slide_responses WHERE id = $1', [id]);
       }
       return res.status(200).json({ success: true });
     }

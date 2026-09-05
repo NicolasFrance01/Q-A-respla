@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { 
-  MessageSquare, 
   Monitor, 
   Smartphone, 
   Columns, 
@@ -12,47 +11,36 @@ import {
   Radio,
   ChevronDown
 } from 'lucide-react';
-import { sessionStore, QASession } from '../services/sessionStore';
+import { sessionStore, QAPresentation } from '../services/sessionStore';
 
 interface NavbarProps {
   currentView: 'presenter' | 'participant' | 'split';
   setCurrentView: (view: 'presenter' | 'participant' | 'split') => void;
   onOpenQR: () => void;
+  onOpenCreator: () => void;
   theme: 'dark' | 'light';
   toggleTheme: () => void;
-  activeSession?: QASession;
-  sessions: QASession[];
+  activePresentation?: QAPresentation;
+  presentations: QAPresentation[];
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   currentView,
   setCurrentView,
   onOpenQR,
+  onOpenCreator,
   theme,
   toggleTheme,
-  activeSession,
-  sessions
+  activePresentation,
+  presentations
 }) => {
-  const [isCreatingSession, setIsCreatingSession] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newCode, setNewCode] = useState('');
-  const [showSessionDropdown, setShowSessionDropdown] = useState(false);
-
-  const handleCreateSession = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTitle.trim()) return;
-    const created = sessionStore.createSession(newTitle.trim(), newCode.trim() || undefined);
-    setNewTitle('');
-    setNewCode('');
-    setIsCreatingSession(false);
-    setShowSessionDropdown(false);
-  };
+  const [showDropdown, setShowDropdown] = useState(false);
 
   return (
     <header className="glass-panel" style={{ borderRadius: 0, borderTop: 'none', borderLeft: 'none', borderRight: 'none', position: 'sticky', top: 0, zIndex: 100 }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
         
-        {/* Brand & Active Session */}
+        {/* Brand & Active Presentation */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <img 
@@ -72,14 +60,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <Radio size={10} className="glow-effect" /> EN VIVO
                 </span>
               </div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Pizarra Q&A Interactiva</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Presentaciones Q&A Anónimas</span>
             </div>
           </div>
 
-          {/* Session Switcher */}
+          {/* Presentation Switcher */}
           <div style={{ position: 'relative' }}>
             <button
-              onClick={() => setShowSessionDropdown(!showSessionDropdown)}
+              onClick={() => setShowDropdown(!showDropdown)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -95,37 +83,37 @@ export const Navbar: React.FC<NavbarProps> = ({
               }}
             >
               <span style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {activeSession ? activeSession.title : 'Seleccionar Sesión'}
+                {activePresentation ? activePresentation.title : 'Seleccionar Presentación'}
               </span>
-              {activeSession && (
+              {activePresentation && (
                 <span style={{ background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem', color: 'var(--accent-primary)', fontWeight: 700 }}>
-                  #{activeSession.code}
+                  #{activePresentation.code}
                 </span>
               )}
               <ChevronDown size={14} color="var(--text-secondary)" />
             </button>
 
-            {showSessionDropdown && (
-              <div className="glass-panel animate-pop" style={{ position: 'absolute', top: '110%', left: 0, minWidth: '260px', zIndex: 110, padding: '8px' }}>
+            {showDropdown && (
+              <div className="glass-panel animate-pop" style={{ position: 'absolute', top: '110%', left: 0, minWidth: '280px', zIndex: 110, padding: '8px' }}>
                 <div style={{ padding: '6px 10px', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                  Sesiones Activas
+                  Presentaciones Activas
                 </div>
-                {sessions.map(s => (
+                {presentations.map(p => (
                   <button
-                    key={s.id}
+                    key={p.id}
                     onClick={() => {
-                      sessionStore.setActiveSessionId(s.id);
-                      setShowSessionDropdown(false);
+                      sessionStore.setActivePresentationId(p.id);
+                      setShowDropdown(false);
                     }}
                     style={{
                       width: '100%',
                       textAlign: 'left',
                       padding: '8px 12px',
                       borderRadius: 'var(--radius-sm)',
-                      background: s.id === activeSession?.id ? 'var(--bg-accent-subtle)' : 'transparent',
+                      background: p.id === activePresentation?.id ? 'var(--bg-accent-subtle)' : 'transparent',
                       border: 'none',
-                      color: s.id === activeSession?.id ? 'var(--accent-primary)' : 'var(--text-primary)',
-                      fontWeight: s.id === activeSession?.id ? 700 : 500,
+                      color: p.id === activePresentation?.id ? 'var(--accent-primary)' : 'var(--text-primary)',
+                      fontWeight: p.id === activePresentation?.id ? 700 : 500,
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
@@ -134,10 +122,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                   >
                     <div>
-                      <div style={{ fontSize: '0.85rem' }}>{s.title}</div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>#{s.code}</div>
+                      <div style={{ fontSize: '0.85rem' }}>{p.title}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>#{p.code} • {p.slides.length} diapositivas</div>
                     </div>
-                    {s.id === activeSession?.id && <Check size={16} color="var(--accent-primary)" />}
+                    {p.id === activePresentation?.id && <Check size={16} color="var(--accent-primary)" />}
                   </button>
                 ))}
                 
@@ -145,8 +133,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                 
                 <button
                   onClick={() => {
-                    setIsCreatingSession(true);
-                    setShowSessionDropdown(false);
+                    onOpenCreator();
+                    setShowDropdown(false);
                   }}
                   style={{
                     width: '100%',
@@ -164,14 +152,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                     gap: '6px'
                   }}
                 >
-                  <Plus size={16} /> Crear Nueva Sesión
+                  <Plus size={16} /> Crear Presentación Q&A Anónimas
                 </button>
               </div>
             )}
           </div>
         </div>
 
-        {/* Navigation View Switcher (Presenter / Mobile / Split) */}
+        {/* View Switcher */}
         <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-secondary)', padding: '4px', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-color)' }}>
           <button
             onClick={() => setCurrentView('presenter')}
@@ -237,21 +225,41 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </div>
 
-        {/* Right Tools: QR Code Modal launcher & Theme toggle */}
+        {/* Action Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button
-            onClick={onOpenQR}
+            onClick={onOpenCreator}
             className="gradient-btn"
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
+              gap: '6px',
               padding: '8px 16px',
               borderRadius: 'var(--radius-sm)',
-              fontSize: '0.875rem'
+              fontSize: '0.85rem'
             }}
           >
-            <QrCode size={18} />
+            <Plus size={16} />
+            <span>Crear Presentación Q&A Anónimas</span>
+          </button>
+
+          <button
+            onClick={onOpenQR}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--text-primary)',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            <QrCode size={16} />
             <span>Ver QR</span>
           </button>
 
@@ -275,107 +283,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </div>
       </div>
-
-      {/* Create Session Modal */}
-      {isCreatingSession && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.7)',
-          backdropFilter: 'blur(8px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }}>
-          <div className="glass-panel animate-pop" style={{ width: '100%', maxWidth: '440px', padding: '28px' }}>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '6px' }}>Nueva Sesión de Preguntas</h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-              Crea una sala interactiva para que tu audiencia envíe preguntas anónimas escaneando el código QR.
-            </p>
-
-            <form onSubmit={handleCreateSession}>
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                  Título del Evento o Presentación *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej: Q&A Conferencia Anual de Tecnología"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: 'var(--radius-sm)',
-                    background: 'var(--bg-secondary)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.9rem',
-                    outline: 'none'
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                  Código Personalizado (Opcional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ej: RESPLA2026"
-                  value={newCode}
-                  onChange={(e) => setNewCode(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: 'var(--radius-sm)',
-                    background: 'var(--bg-secondary)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.9rem',
-                    outline: 'none',
-                    textTransform: 'uppercase'
-                  }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  onClick={() => setIsCreatingSession(false)}
-                  style={{
-                    padding: '10px 18px',
-                    borderRadius: 'var(--radius-sm)',
-                    background: 'var(--bg-secondary)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-secondary)',
-                    fontWeight: 600,
-                    cursor: 'pointer'
-                  }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="gradient-btn"
-                  style={{
-                    padding: '10px 20px',
-                    borderRadius: 'var(--radius-sm)'
-                  }}
-                >
-                  Crear Sesión
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </header>
   );
 };

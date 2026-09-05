@@ -1,6 +1,23 @@
-export interface Question {
+export interface Slide {
   id: string;
-  sessionId: string;
+  prompt: string;
+  description?: string;
+}
+
+export interface QAPresentation {
+  id: string;
+  title: string;
+  code: string;
+  createdAt: number;
+  activeSlideIndex: number;
+  status: 'active' | 'ended';
+  slides: Slide[];
+}
+
+export interface SlideResponse {
+  id: string;
+  presentationId: string;
+  slideId: string;
   content: string;
   upvotes: number;
   createdAt: number;
@@ -9,78 +26,45 @@ export interface Question {
   authorAlias: string;
 }
 
-export interface QASession {
-  id: string;
-  title: string;
-  code: string;
-  createdAt: number;
-  isAcceptingQuestions: boolean;
-  spotlightQuestionId: string | null;
-}
+export type Question = SlideResponse;
+export type QASession = QAPresentation;
 
 const STORAGE_KEYS = {
-  SESSIONS: 'respla_qa_sessions',
-  ACTIVE_SESSION_ID: 'respla_qa_active_session_id',
-  QUESTIONS: 'respla_qa_questions',
-  USER_VOTES: 'respla_qa_user_votes',
+  PRESENTATIONS: 'respla_presentations_v2',
+  ACTIVE_PRESENTATION_ID: 'respla_active_presentation_id_v2',
+  RESPONSES: 'respla_slide_responses_v2',
+  USER_VOTES: 'respla_user_votes_v2',
 };
 
-const syncChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('respla_qa_sync') : null;
+const syncChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('respla_qa_sync_v2') : null;
 
-const defaultSessions: QASession[] = [
-  {
-    id: 'demo-session-1',
-    title: 'Presentación: Lanzamiento de Producto & Estrategia 2026 🚀',
-    code: 'PROD-2026',
-    createdAt: Date.now() - 3600000,
-    isAcceptingQuestions: true,
-    spotlightQuestionId: null,
-  }
-];
-
-const defaultQuestions: Question[] = [
-  {
-    id: 'q-1',
-    sessionId: 'demo-session-1',
-    content: '¿Cuál es la fecha estimada de lanzamiento del módulo adicional para usuarios en móviles?',
-    upvotes: 18,
-    createdAt: Date.now() - 2500000,
-    isAnswered: false,
-    isPinned: true,
-    authorAlias: 'Anónimo'
-  },
-  {
-    id: 'q-2',
-    sessionId: 'demo-session-1',
-    content: '¿Se podrá integrar este sistema de preguntas en vivo con plataformas de streaming como Zoom o YouTube Live?',
-    upvotes: 12,
-    createdAt: Date.now() - 1800000,
-    isAnswered: false,
-    isPinned: false,
-    authorAlias: 'Anónimo'
-  },
-  {
-    id: 'q-3',
-    sessionId: 'demo-session-1',
-    content: '¿Hay un límite de preguntas que un usuario puede enviar de manera anónima?',
-    upvotes: 7,
-    createdAt: Date.now() - 900000,
-    isAnswered: true,
-    isPinned: false,
-    authorAlias: 'Anónimo'
-  }
-];
+// Initial clean default presentation
+const initialDefaultPresentation: QAPresentation = {
+  id: 'pres-1',
+  title: 'Encuentro JEA 2026',
+  code: 'JEA-2026',
+  createdAt: Date.now(),
+  activeSlideIndex: 0,
+  status: 'active',
+  slides: [
+    {
+      id: 'slide-1',
+      prompt: '¿Qué preguntas o inquietudes tienes para compartir hoy?',
+      description: 'Envía tus respuestas o dudas de manera 100% anónima escaneando el QR.'
+    }
+  ]
+};
 
 export const sessionStore = {
   init() {
-    if (!localStorage.getItem(STORAGE_KEYS.SESSIONS)) {
-      localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(defaultSessions));
+    if (!localStorage.getItem(STORAGE_KEYS.PRESENTATIONS)) {
+      localStorage.setItem(STORAGE_KEYS.PRESENTATIONS, JSON.stringify([initialDefaultPresentation]));
     }
-    if (!localStorage.getItem(STORAGE_KEYS.ACTIVE_SESSION_ID)) {
-      localStorage.setItem(STORAGE_KEYS.ACTIVE_SESSION_ID, 'demo-session-1');
+    if (!localStorage.getItem(STORAGE_KEYS.ACTIVE_PRESENTATION_ID)) {
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_PRESENTATION_ID, 'pres-1');
     }
-    if (!localStorage.getItem(STORAGE_KEYS.QUESTIONS)) {
-      localStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(defaultQuestions));
+    if (!localStorage.getItem(STORAGE_KEYS.RESPONSES)) {
+      localStorage.setItem(STORAGE_KEYS.RESPONSES, JSON.stringify([]));
     }
     if (!localStorage.getItem(STORAGE_KEYS.USER_VOTES)) {
       localStorage.setItem(STORAGE_KEYS.USER_VOTES, JSON.stringify([]));
@@ -95,128 +79,163 @@ export const sessionStore = {
     window.dispatchEvent(new Event('respla_state_update'));
   },
 
-  // Remote PostgreSQL sync helpers
   async syncFromRemote() {
     try {
-      const resSessions = await fetch('/api/sessions');
-      if (resSessions.ok) {
-        const remoteSessions: QASession[] = await resSessions.json();
-        if (remoteSessions && remoteSessions.length > 0) {
-          localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(remoteSessions));
+      const resPres = await fetch('/api/sessions');
+      if (resPres.ok) {
+        const remotePres: QAPresentation[] = await resPres.json();
+        if (remotePres && remotePres.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.PRESENTATIONS, JSON.stringify(remotePres));
         }
       }
 
-      const resQuestions = await fetch('/api/questions');
-      if (resQuestions.ok) {
-        const remoteQuestions: Question[] = await resQuestions.json();
-        if (remoteQuestions && remoteQuestions.length > 0) {
-          localStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(remoteQuestions));
+      const resResp = await fetch('/api/questions');
+      if (resResp.ok) {
+        const remoteResp: SlideResponse[] = await resResp.json();
+        if (remoteResp) {
+          localStorage.setItem(STORAGE_KEYS.RESPONSES, JSON.stringify(remoteResp));
         }
       }
       this.notifySync();
-    } catch (err) {
-      // Offline / fallback to localStorage
+    } catch {
+      // offline / local storage fallback
     }
   },
 
-  getSessions(): QASession[] {
+  getPresentations(): QAPresentation[] {
     this.init();
     try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEYS.SESSIONS) || '[]');
+      return JSON.parse(localStorage.getItem(STORAGE_KEYS.PRESENTATIONS) || '[]');
     } catch {
-      return defaultSessions;
+      return [initialDefaultPresentation];
     }
   },
 
-  getActiveSessionId(): string {
+  getActivePresentationId(): string {
     this.init();
-    return localStorage.getItem(STORAGE_KEYS.ACTIVE_SESSION_ID) || 'demo-session-1';
+    return localStorage.getItem(STORAGE_KEYS.ACTIVE_PRESENTATION_ID) || 'pres-1';
   },
 
-  setActiveSessionId(id: string) {
-    localStorage.setItem(STORAGE_KEYS.ACTIVE_SESSION_ID, id);
+  setActivePresentationId(id: string) {
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_PRESENTATION_ID, id);
     this.notifySync();
   },
 
-  getActiveSession(): QASession | undefined {
-    const activeId = this.getActiveSessionId();
-    return this.getSessions().find(s => s.id === activeId);
+  getActivePresentation(): QAPresentation | undefined {
+    const activeId = this.getActivePresentationId();
+    return this.getPresentations().find(p => p.id === activeId);
   },
 
-  createSession(title: string, customCode?: string): QASession {
-    const sessions = this.getSessions();
-    const code = customCode?.trim().toUpperCase() || Math.random().toString(36).substring(2, 7).toUpperCase();
-    const newSession: QASession = {
-      id: 'session-' + Date.now(),
-      title,
+  createPresentation(title: string, slides: { prompt: string; description?: string }[], customCode?: string): QAPresentation {
+    const list = this.getPresentations();
+    const code = customCode?.trim().toUpperCase() || 'JEA-' + Math.floor(1000 + Math.random() * 9000);
+    
+    const formattedSlides: Slide[] = slides.map((s, idx) => ({
+      id: 'slide-' + Date.now() + '-' + idx,
+      prompt: s.prompt.trim(),
+      description: s.description?.trim()
+    }));
+
+    const newPres: QAPresentation = {
+      id: 'pres-' + Date.now(),
+      title: title.trim(),
       code,
       createdAt: Date.now(),
-      isAcceptingQuestions: true,
-      spotlightQuestionId: null,
+      activeSlideIndex: 0,
+      status: 'active',
+      slides: formattedSlides.length > 0 ? formattedSlides : [
+        {
+          id: 'slide-' + Date.now(),
+          prompt: '¿Qué preguntas o comentarios tienes para esta sesión?',
+          description: 'Escribe de forma anónima desde tu celular'
+        }
+      ]
     };
-    sessions.unshift(newSession);
-    localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(sessions));
-    localStorage.setItem(STORAGE_KEYS.ACTIVE_SESSION_ID, newSession.id);
+
+    list.unshift(newPres);
+    localStorage.setItem(STORAGE_KEYS.PRESENTATIONS, JSON.stringify(list));
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_PRESENTATION_ID, newPres.id);
     this.notifySync();
 
     fetch('/api/sessions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newSession)
+      body: JSON.stringify(newPres)
     }).catch(() => {});
 
-    return newSession;
+    return newPres;
   },
 
-  toggleAcceptingQuestions(sessionId: string) {
-    const sessions = this.getSessions();
-    const index = sessions.findIndex(s => s.id === sessionId);
-    if (index !== -1) {
-      sessions[index].isAcceptingQuestions = !sessions[index].isAcceptingQuestions;
-      localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(sessions));
+  setActiveSlideIndex(presentationId: string, index: number) {
+    const list = this.getPresentations();
+    const pIndex = list.findIndex(p => p.id === presentationId);
+    if (pIndex !== -1) {
+      list[pIndex].activeSlideIndex = index;
+      localStorage.setItem(STORAGE_KEYS.PRESENTATIONS, JSON.stringify(list));
       this.notifySync();
 
       fetch('/api/sessions', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: sessionId, isAcceptingQuestions: sessions[index].isAcceptingQuestions })
+        body: JSON.stringify({ id: presentationId, activeSlideIndex: index })
       }).catch(() => {});
     }
   },
 
-  setSpotlightQuestionId(sessionId: string, questionId: string | null) {
-    const sessions = this.getSessions();
-    const index = sessions.findIndex(s => s.id === sessionId);
-    if (index !== -1) {
-      sessions[index].spotlightQuestionId = questionId;
-      localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(sessions));
+  endPresentation(presentationId: string) {
+    const list = this.getPresentations();
+    const pIndex = list.findIndex(p => p.id === presentationId);
+    if (pIndex !== -1) {
+      list[pIndex].status = 'ended';
+      localStorage.setItem(STORAGE_KEYS.PRESENTATIONS, JSON.stringify(list));
       this.notifySync();
 
       fetch('/api/sessions', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: sessionId, spotlightQuestionId: questionId })
+        body: JSON.stringify({ id: presentationId, status: 'ended' })
       }).catch(() => {});
     }
   },
 
-  getQuestions(sessionId?: string): Question[] {
+  addSlide(presentationId: string, prompt: string, description?: string) {
+    const list = this.getPresentations();
+    const pIndex = list.findIndex(p => p.id === presentationId);
+    if (pIndex !== -1) {
+      const newSlide: Slide = {
+        id: 'slide-' + Date.now(),
+        prompt: prompt.trim(),
+        description: description?.trim()
+      };
+      list[pIndex].slides.push(newSlide);
+      localStorage.setItem(STORAGE_KEYS.PRESENTATIONS, JSON.stringify(list));
+      this.notifySync();
+
+      fetch('/api/sessions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: presentationId, slides: list[pIndex].slides })
+      }).catch(() => {});
+    }
+  },
+
+  // Slide Responses
+  getResponses(presentationId: string, slideId?: string): SlideResponse[] {
     this.init();
     try {
-      const all: Question[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.QUESTIONS) || '[]');
-      const targetSessionId = sessionId || this.getActiveSessionId();
-      return all.filter(q => q.sessionId === targetSessionId);
+      const all: SlideResponse[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.RESPONSES) || '[]');
+      return all.filter(r => r.presentationId === presentationId && (!slideId || r.slideId === slideId));
     } catch {
       return [];
     }
   },
 
-  addQuestion(content: string, sessionId?: string, authorAlias: string = 'Anónimo'): Question {
-    const targetSessionId = sessionId || this.getActiveSessionId();
-    const all = this.getAllQuestionsRaw();
-    const newQ: Question = {
-      id: 'q-' + Date.now() + '-' + Math.random().toString(36).substring(2, 5),
-      sessionId: targetSessionId,
+  addResponse(presentationId: string, slideId: string, content: string, authorAlias: string = 'Anónimo'): SlideResponse {
+    const all = this.getAllResponsesRaw();
+    const newResp: SlideResponse = {
+      id: 'resp-' + Date.now() + '-' + Math.random().toString(36).substring(2, 5),
+      presentationId,
+      slideId,
       content: content.trim(),
       upvotes: 1,
       createdAt: Date.now(),
@@ -224,23 +243,23 @@ export const sessionStore = {
       isPinned: false,
       authorAlias: authorAlias.trim() || 'Anónimo',
     };
-    all.unshift(newQ);
-    localStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(all));
-    this.registerUserVote(newQ.id);
+    all.unshift(newResp);
+    localStorage.setItem(STORAGE_KEYS.RESPONSES, JSON.stringify(all));
+    this.registerUserVote(newResp.id);
     this.notifySync();
 
     fetch('/api/questions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newQ)
+      body: JSON.stringify(newResp)
     }).catch(() => {});
 
-    return newQ;
+    return newResp;
   },
 
-  getAllQuestionsRaw(): Question[] {
+  getAllResponsesRaw(): SlideResponse[] {
     try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEYS.QUESTIONS) || '[]');
+      return JSON.parse(localStorage.getItem(STORAGE_KEYS.RESPONSES) || '[]');
     } catch {
       return [];
     }
@@ -254,98 +273,85 @@ export const sessionStore = {
     }
   },
 
-  registerUserVote(questionId: string) {
+  registerUserVote(responseId: string) {
     const votes = this.getUserVotes();
-    if (!votes.includes(questionId)) {
-      votes.push(questionId);
+    if (!votes.includes(responseId)) {
+      votes.push(responseId);
       localStorage.setItem(STORAGE_KEYS.USER_VOTES, JSON.stringify(votes));
     }
   },
 
-  toggleUpvote(questionId: string) {
-    const all = this.getAllQuestionsRaw();
-    const qIndex = all.findIndex(q => q.id === questionId);
-    if (qIndex === -1) return;
+  toggleUpvote(responseId: string) {
+    const all = this.getAllResponsesRaw();
+    const index = all.findIndex(r => r.id === responseId);
+    if (index === -1) return;
 
     const userVotes = this.getUserVotes();
-    const hasVoted = userVotes.includes(questionId);
+    const hasVoted = userVotes.includes(responseId);
     const delta = hasVoted ? -1 : 1;
 
     if (hasVoted) {
-      all[qIndex].upvotes = Math.max(0, all[qIndex].upvotes - 1);
-      const newVotes = userVotes.filter(id => id !== questionId);
+      all[index].upvotes = Math.max(0, all[index].upvotes - 1);
+      const newVotes = userVotes.filter(id => id !== responseId);
       localStorage.setItem(STORAGE_KEYS.USER_VOTES, JSON.stringify(newVotes));
     } else {
-      all[qIndex].upvotes += 1;
-      userVotes.push(questionId);
+      all[index].upvotes += 1;
+      userVotes.push(responseId);
       localStorage.setItem(STORAGE_KEYS.USER_VOTES, JSON.stringify(userVotes));
     }
 
-    localStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(all));
+    localStorage.setItem(STORAGE_KEYS.RESPONSES, JSON.stringify(all));
     this.notifySync();
 
     fetch('/api/questions', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: questionId, action: 'upvote', delta })
+      body: JSON.stringify({ id: responseId, action: 'upvote', delta })
     }).catch(() => {});
   },
 
-  toggleAnswered(questionId: string) {
-    const all = this.getAllQuestionsRaw();
-    const qIndex = all.findIndex(q => q.id === questionId);
-    if (qIndex !== -1) {
-      all[qIndex].isAnswered = !all[qIndex].isAnswered;
-      localStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(all));
+  toggleAnswered(responseId: string) {
+    const all = this.getAllResponsesRaw();
+    const index = all.findIndex(r => r.id === responseId);
+    if (index !== -1) {
+      all[index].isAnswered = !all[index].isAnswered;
+      localStorage.setItem(STORAGE_KEYS.RESPONSES, JSON.stringify(all));
       this.notifySync();
 
       fetch('/api/questions', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: questionId, action: 'toggleAnswered' })
+        body: JSON.stringify({ id: responseId, action: 'toggleAnswered' })
       }).catch(() => {});
     }
   },
 
-  togglePinned(questionId: string) {
-    const all = this.getAllQuestionsRaw();
-    const qIndex = all.findIndex(q => q.id === questionId);
-    if (qIndex !== -1) {
-      all[qIndex].isPinned = !all[qIndex].isPinned;
-      localStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(all));
+  togglePinned(responseId: string) {
+    const all = this.getAllResponsesRaw();
+    const index = all.findIndex(r => r.id === responseId);
+    if (index !== -1) {
+      all[index].isPinned = !all[index].isPinned;
+      localStorage.setItem(STORAGE_KEYS.RESPONSES, JSON.stringify(all));
       this.notifySync();
 
       fetch('/api/questions', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: questionId, action: 'togglePinned' })
+        body: JSON.stringify({ id: responseId, action: 'togglePinned' })
       }).catch(() => {});
     }
   },
 
-  deleteQuestion(questionId: string) {
-    let all = this.getAllQuestionsRaw();
-    all = all.filter(q => q.id !== questionId);
-    localStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(all));
+  deleteResponse(responseId: string) {
+    let all = this.getAllResponsesRaw();
+    all = all.filter(r => r.id !== responseId);
+    localStorage.setItem(STORAGE_KEYS.RESPONSES, JSON.stringify(all));
     this.notifySync();
 
     fetch('/api/questions', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: questionId })
-    }).catch(() => {});
-  },
-
-  clearSessionQuestions(sessionId: string) {
-    let all = this.getAllQuestionsRaw();
-    all = all.filter(q => q.sessionId !== sessionId);
-    localStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(all));
-    this.notifySync();
-
-    fetch('/api/questions', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId })
+      body: JSON.stringify({ id: responseId })
     }).catch(() => {});
   },
 

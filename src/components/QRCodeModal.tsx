@@ -6,7 +6,11 @@ import { QASession } from '../services/sessionStore';
 interface QRCodeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  session?: QASession;
+  session?: {
+    id: string;
+    title: string;
+    code: string;
+  };
   onOpenMobileView?: () => void;
 }
 

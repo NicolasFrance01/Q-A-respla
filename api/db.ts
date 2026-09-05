@@ -16,18 +16,20 @@ export async function initDb() {
   const client = await pool.connect();
   try {
     await client.query(`
-      CREATE TABLE IF NOT EXISTS sessions (
+      CREATE TABLE IF NOT EXISTS presentations (
         id VARCHAR(255) PRIMARY KEY,
         title TEXT NOT NULL,
         code VARCHAR(50) NOT NULL,
         created_at BIGINT NOT NULL,
-        is_accepting_questions BOOLEAN DEFAULT TRUE,
-        spotlight_question_id VARCHAR(255)
+        active_slide_index INT DEFAULT 0,
+        status VARCHAR(50) DEFAULT 'active',
+        slides JSONB NOT NULL
       );
 
-      CREATE TABLE IF NOT EXISTS questions (
+      CREATE TABLE IF NOT EXISTS slide_responses (
         id VARCHAR(255) PRIMARY KEY,
-        session_id VARCHAR(255) NOT NULL,
+        presentation_id VARCHAR(255) NOT NULL,
+        slide_id VARCHAR(255) NOT NULL,
         content TEXT NOT NULL,
         upvotes INT DEFAULT 1,
         created_at BIGINT NOT NULL,

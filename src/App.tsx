@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
-import { PresenterDashboard } from './components/PresenterDashboard';
-import { ParticipantView } from './components/ParticipantView';
+import { PresenterSlideDeck } from './components/PresenterSlideDeck';
+import { ParticipantSlideView } from './components/ParticipantSlideView';
+import { PresentationCreator } from './components/PresentationCreator';
 import { QRCodeModal } from './components/QRCodeModal';
-import { SpotlightModal } from './components/SpotlightModal';
-import { sessionStore, QASession, Question } from './services/sessionStore';
-import { Smartphone, Monitor } from 'lucide-react';
+import { sessionStore, QAPresentation, SlideResponse } from './services/sessionStore';
+import { Smartphone, Monitor, Plus, Sparkles } from 'lucide-react';
 
 export default function App() {
-  // Determine default view mode based on URL search query (e.g. ?session=xxx -> participant)
   const urlParams = new URLSearchParams(window.location.search);
   const targetSessionIdFromUrl = urlParams.get('session');
 
@@ -18,14 +17,14 @@ export default function App() {
   
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+  const [isCreatorOpen, setIsCreatorOpen] = useState(false);
   const [tick, setTick] = useState(0);
 
-  // Initialize store and sync listeners
   useEffect(() => {
     sessionStore.init();
 
     if (targetSessionIdFromUrl) {
-      sessionStore.setActiveSessionId(targetSessionIdFromUrl);
+      sessionStore.setActivePresentationId(targetSessionIdFromUrl);
     }
 
     const unsubscribe = sessionStore.subscribe(() => {
@@ -35,7 +34,6 @@ export default function App() {
     return () => unsubscribe();
   }, [targetSessionIdFromUrl]);
 
-  // Set theme data attribute on body
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
@@ -44,11 +42,9 @@ export default function App() {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   };
 
-  const sessions = sessionStore.getSessions();
-  const activeSession = sessionStore.getActiveSession() || sessions[0];
-  const questions = sessionStore.getQuestions(activeSession?.id);
-
-  const spotlightQuestion = questions.find(q => q.id === activeSession?.spotlightQuestionId) || null;
+  const presentations = sessionStore.getPresentations();
+  const activePresentation = sessionStore.getActivePresentation() || presentations[0];
+  const responses = activePresentation ? sessionStore.getResponses(activePresentation.id) : [];
 
   return (
     <div className="app-container">
@@ -57,61 +53,64 @@ export default function App() {
         currentView={currentView}
         setCurrentView={setCurrentView}
         onOpenQR={() => setIsQRModalOpen(true)}
+        onOpenCreator={() => setIsCreatorOpen(true)}
         theme={theme}
         toggleTheme={toggleTheme}
-        activeSession={activeSession}
-        sessions={sessions}
+        activePresentation={activePresentation}
+        presentations={presentations}
       />
 
-      {/* Main View Router */}
+      {/* Main Stage View Router */}
       <main className="main-content">
-        {activeSession ? (
+        {activePresentation ? (
           <>
             {currentView === 'presenter' && (
-              <PresenterDashboard
-                session={activeSession}
-                questions={questions}
+              <PresenterSlideDeck
+                presentation={activePresentation}
+                responses={responses}
                 onOpenQR={() => setIsQRModalOpen(true)}
+                onOpenCreator={() => setIsCreatorOpen(true)}
               />
             )}
 
             {currentView === 'participant' && (
               <div style={{ padding: '20px 0' }}>
-                <ParticipantView
-                  session={activeSession}
-                  questions={questions}
+                <ParticipantSlideView
+                  presentation={activePresentation}
+                  responses={responses}
                 />
               </div>
             )}
 
             {currentView === 'split' && (
               <div className="split-view-container">
-                {/* Presenter Side */}
+                {/* Presenter Stage Side */}
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>
                     <Monitor size={16} color="var(--accent-primary)" />
-                    <span>PANEL DEL PRESENTADOR (VISTA ESCRITORIO / PANTALLA EN VIVO)</span>
+                    <span>PANEL DE PRESENTACIÓN (ESCRITORIO / PANTALLA GIGANTE EN VIVO)</span>
                   </div>
-                  <PresenterDashboard
-                    session={activeSession}
-                    questions={questions}
+                  <PresenterSlideDeck
+                    presentation={activePresentation}
+                    responses={responses}
                     onOpenQR={() => setIsQRModalOpen(true)}
+                    onOpenCreator={() => setIsCreatorOpen(true)}
                   />
                 </div>
 
-                {/* Mobile Preview Side */}
+                {/* Mobile Participant Preview Side */}
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: 600 }}>
                     <Smartphone size={16} color="var(--accent-primary)" />
-                    <span>SIMULADOR CELULAR PARTICIPANTE</span>
+                    <span>SIMULADOR MÓVIL PARTICIPANTE (SINCRONIZADO EN TIEMPO REAL)</span>
                   </div>
                   
                   <div className="mobile-frame">
                     <div className="mobile-notch"></div>
                     <div style={{ flex: 1, overflowY: 'auto', paddingTop: '16px' }}>
-                      <ParticipantView
-                        session={activeSession}
-                        questions={questions}
+                      <ParticipantSlideView
+                        presentation={activePresentation}
+                        responses={responses}
                         isMobileFrame={true}
                       />
                     </div>
@@ -121,8 +120,18 @@ export default function App() {
             )}
           </>
         ) : (
-          <div style={{ textAlign: 'center', padding: '60px' }}>
-            <h2>Cargando sesión...</h2>
+          <div style={{ textAlign: 'center', padding: '80px 24px' }}>
+            <Sparkles size={48} color="var(--accent-primary)" style={{ marginBottom: '16px' }} />
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '8px' }}>Bienvenido a Resplandece Q&A</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Crea tu primera presentación con diapositivas interactivas para tu audiencia.</p>
+
+            <button
+              onClick={() => setIsCreatorOpen(true)}
+              className="gradient-btn"
+              style={{ padding: '12px 24px', borderRadius: 'var(--radius-full)', fontSize: '1rem' }}
+            >
+              <Plus size={18} /> Crear Presentación Q&A Anónimas
+            </button>
           </div>
         )}
       </main>
@@ -131,14 +140,21 @@ export default function App() {
       <QRCodeModal
         isOpen={isQRModalOpen}
         onClose={() => setIsQRModalOpen(false)}
-        session={activeSession}
+        session={activePresentation ? {
+          id: activePresentation.id,
+          title: activePresentation.title,
+          code: activePresentation.code
+        } : undefined}
         onOpenMobileView={() => setCurrentView('participant')}
       />
 
-      <SpotlightModal
-        question={spotlightQuestion}
-        onClose={() => activeSession && sessionStore.setSpotlightQuestionId(activeSession.id, null)}
-        questions={questions}
+      <PresentationCreator
+        isOpen={isCreatorOpen}
+        onClose={() => setIsCreatorOpen(false)}
+        onCreated={(p) => {
+          sessionStore.setActivePresentationId(p.id);
+          setCurrentView('split');
+        }}
       />
     </div>
   );
