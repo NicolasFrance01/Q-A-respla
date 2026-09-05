@@ -30,13 +30,13 @@ export type Question = SlideResponse;
 export type QASession = QAPresentation;
 
 const STORAGE_KEYS = {
-  PRESENTATIONS: 'respla_presentations_v3',
-  ACTIVE_PRESENTATION_ID: 'respla_active_presentation_id_v3',
-  RESPONSES: 'respla_slide_responses_v3',
-  USER_VOTES: 'respla_user_votes_v3',
+  PRESENTATIONS: 'respla_presentations_v4',
+  ACTIVE_PRESENTATION_ID: 'respla_active_presentation_id_v4',
+  RESPONSES: 'respla_slide_responses_v4',
+  USER_VOTES: 'respla_user_votes_v4',
 };
 
-const syncChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('respla_qa_sync_v3') : null;
+const syncChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('respla_qa_sync_v4') : null;
 
 let isPollingStarted = false;
 
@@ -90,22 +90,53 @@ export const sessionStore = {
 
   async syncFromRemote() {
     try {
+      const activeId = this.getActivePresentationId();
+      const currentLocalPresentations: QAPresentation[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.PRESENTATIONS) || '[]');
+      const localActivePres = currentLocalPresentations.find(p => p.id === activeId);
+      
       const resPres = await fetch('/api/sessions');
       if (resPres.ok) {
         const remotePres: QAPresentation[] = await resPres.json();
         if (remotePres && remotePres.length > 0) {
-          localStorage.setItem(STORAGE_KEYS.PRESENTATIONS, JSON.stringify(remotePres));
+          // Merge remote presentations, preserving local activeSlideIndex if local was recently updated
+          const presMap = new Map<string, QAPresentation>();
+          remotePres.forEach(p => presMap.set(p.id, p));
+          currentLocalPresentations.forEach(p => {
+            if (!presMap.has(p.id)) {
+              presMap.set(p.id, p);
+            } else if (localActivePres && p.id === localActivePres.id) {
+              // If remote activeSlideIndex is stale, keep local
+              const existingRemote = presMap.get(p.id)!;
+              if (existingRemote.activeSlideIndex !== p.activeSlideIndex && p.activeSlideIndex !== undefined) {
+                existingRemote.activeSlideIndex = p.activeSlideIndex;
+              }
+              if (p.slides && p.slides.length > existingRemote.slides.length) {
+                existingRemote.slides = p.slides;
+              }
+            }
+          });
+          localStorage.setItem(STORAGE_KEYS.PRESENTATIONS, JSON.stringify(Array.from(presMap.values())));
         }
       }
 
-      const activeId = this.getActivePresentationId();
+      // Sync Responses without EVER losing local responses
       const resResp = await fetch(`/api/questions?presentationId=${activeId}`);
+      const currentLocalResponses: SlideResponse[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.RESPONSES) || '[]');
+      const respMap = new Map<string, SlideResponse>();
+      
+      // Load local first
+      currentLocalResponses.forEach(r => respMap.set(r.id, r));
+
       if (resResp.ok) {
         const remoteResp: SlideResponse[] = await resResp.json();
-        if (remoteResp) {
-          localStorage.setItem(STORAGE_KEYS.RESPONSES, JSON.stringify(remoteResp));
+        if (remoteResp && Array.isArray(remoteResp)) {
+          remoteResp.forEach(r => respMap.set(r.id, r));
         }
       }
+
+      const mergedResponses = Array.from(respMap.values()).sort((a, b) => b.createdAt - a.createdAt);
+      localStorage.setItem(STORAGE_KEYS.RESPONSES, JSON.stringify(mergedResponses));
+      
       this.notifySync();
     } catch {
       // offline fallback
@@ -135,7 +166,6 @@ export const sessionStore = {
   getActivePresentation(): QAPresentation | undefined {
     const activeId = this.getActivePresentationId();
     const presentations = this.getPresentations();
-    // Search by ID or Code or fallback to first
     return presentations.find(p => p.id === activeId || p.code === activeId) || presentations[0];
   },
 
@@ -248,7 +278,7 @@ export const sessionStore = {
     const newResp: SlideResponse = {
       id: 'resp-' + Date.now() + '-' + Math.random().toString(36).substring(2, 5),
       presentationId,
-      slideId,
+      slideId: slideId || '',
       content: content.trim(),
       upvotes: 1,
       createdAt: Date.now(),

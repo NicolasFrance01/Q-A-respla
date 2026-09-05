@@ -10,11 +10,8 @@ import {
   Trash2, 
   Maximize2, 
   Minimize2,
-  Sparkles, 
   MessageSquare,
-  Radio,
-  Home,
-  X
+  Radio
 } from 'lucide-react';
 import { QAPresentation, SlideResponse, sessionStore } from '../services/sessionStore';
 
@@ -38,9 +35,9 @@ export const PresenterSlideDeck: React.FC<PresenterSlideDeckProps> = ({
   const activeIndex = presentation.activeSlideIndex || 0;
   const currentSlide = presentation.slides[activeIndex] || presentation.slides[0];
 
-  // Filter responses specifically for current slide or presentation
+  // Filter responses for the presentation (and active slide if specified)
   const slideResponses = responses
-    .filter(r => r.presentationId === presentation.id && (!currentSlide?.id || r.slideId === currentSlide?.id || !r.slideId || presentation.slides.length <= 1))
+    .filter(r => r.presentationId === presentation.id && (!r.slideId || !currentSlide?.id || r.slideId === currentSlide?.id || presentation.slides.length <= 1))
     .sort((a, b) => {
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
@@ -59,7 +56,6 @@ export const PresenterSlideDeck: React.FC<PresenterSlideDeckProps> = ({
     }
   };
 
-  // Keyboard navigation for Fullscreen mode (Arrow keys & Escape)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight') {
@@ -83,7 +79,6 @@ export const PresenterSlideDeck: React.FC<PresenterSlideDeckProps> = ({
     sessionStore.setActiveSlideIndex(presentation.id, presentation.slides.length);
   };
 
-  // Fullscreen Presentation Mode Component
   if (isFullscreen) {
     return (
       <div style={{
@@ -100,7 +95,7 @@ export const PresenterSlideDeck: React.FC<PresenterSlideDeckProps> = ({
         padding: '32px 48px',
         color: '#ffffff'
       }}>
-        {/* Fullscreen Header */}
+        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <img src="/logo.png" alt="Resplandece Logo" style={{ width: '48px', height: '48px', borderRadius: '50%' }} />
@@ -229,7 +224,7 @@ export const PresenterSlideDeck: React.FC<PresenterSlideDeckProps> = ({
           </div>
         </div>
 
-        {/* Fullscreen Navigation Bar */}
+        {/* Navigation Bar */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>
           <button
             disabled={activeIndex === 0}
@@ -281,7 +276,6 @@ export const PresenterSlideDeck: React.FC<PresenterSlideDeckProps> = ({
     );
   }
 
-  // Normal Presenter Dashboard Deck View
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       

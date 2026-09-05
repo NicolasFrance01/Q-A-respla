@@ -2,13 +2,9 @@ import React, { useState } from 'react';
 import { 
   Send, 
   ThumbsUp, 
-  ShieldCheck, 
   CheckCircle, 
   Flame, 
-  Clock, 
-  Sparkles, 
-  Radio, 
-  Layers
+  Radio
 } from 'lucide-react';
 import { QAPresentation, SlideResponse, sessionStore } from '../services/sessionStore';
 import confetti from 'canvas-confetti';
@@ -73,7 +69,7 @@ export const ParticipantSlideView: React.FC<ParticipantSlideViewProps> = ({
       minHeight: '100%',
       background: 'var(--bg-primary)'
     }}>
-      {/* Mobile Header Bar with Logos */}
+      {/* 1. Room Title & Header Logos */}
       <div style={{
         padding: '16px 20px',
         background: 'var(--bg-secondary)',
@@ -82,59 +78,51 @@ export const ParticipantSlideView: React.FC<ParticipantSlideViewProps> = ({
         top: 0,
         zIndex: 50
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <img src="/logo.png" alt="Resplandece Logo" style={{ width: '28px', height: '28px', borderRadius: '50%' }} />
             <img src="/JEA.png" alt="JEA" style={{ height: '24px', objectFit: 'contain' }} />
             <span style={{ fontWeight: 800, fontSize: '1.05rem' }} className="gradient-text">Resplandece</span>
-            <span style={{ background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: 'var(--radius-full)', fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-primary)' }}>
-              #{presentation.code}
-            </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: 'var(--success-color)', fontWeight: 600 }}>
-            <ShieldCheck size={14} /> 100% Anónimo
-          </div>
+          <span style={{ background: 'var(--bg-tertiary)', padding: '3px 10px', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-primary)' }}>
+            #{presentation.code}
+          </span>
         </div>
 
-        {/* Live Active Slide Tracker Badge */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          background: 'var(--bg-accent-subtle)',
-          padding: '6px 12px',
-          borderRadius: 'var(--radius-full)',
-          border: '1px solid var(--border-glow)'
-        }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span className="badge badge-live" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
-            <Radio size={10} className="glow-effect" /> DIAPOSITIVA EN VIVO #{activeIndex + 1}
+            <Radio size={10} className="glow-effect" /> SALA EN VIVO
           </span>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <h2 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {presentation.title}
-          </span>
+          </h2>
         </div>
       </div>
 
-      {/* Main Slide Card Container */}
+      {/* Main Content Area */}
       <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
         
-        {/* Current Active Slide Prompt Display */}
+        {/* 2. Active Slide Title & Prompt */}
         {currentSlide && (
           <div className="glass-panel animate-pop glow-effect" style={{ padding: '20px', background: 'var(--bg-secondary)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <img src="/llama.png" alt="Llama icon" style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.3 }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-primary)', textTransform: 'uppercase', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Radio size={12} color="var(--accent-primary)" /> Diapositiva Activa #{activeIndex + 1} de {presentation.slides.length}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+              <img src="/llama.png" alt="Llama icon" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
+              <h1 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.3 }}>
                 {currentSlide.prompt}
-              </h2>
+              </h1>
             </div>
             {currentSlide.description && (
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginLeft: '32px' }}>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginLeft: '38px', marginBottom: '12px' }}>
                 {currentSlide.description}
               </p>
             )}
 
-            {/* Answer Form for Active Slide */}
+            {/* Answer Form */}
             <form onSubmit={handleSendResponse} style={{ marginTop: '16px' }}>
               <textarea
                 required
@@ -158,7 +146,6 @@ export const ParticipantSlideView: React.FC<ParticipantSlideViewProps> = ({
                 }}
               />
 
-              {/* Alias option */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
                   <input
@@ -212,17 +199,17 @@ export const ParticipantSlideView: React.FC<ParticipantSlideViewProps> = ({
 
               {submittedSuccess && (
                 <div className="animate-pop" style={{ marginTop: '10px', padding: '8px 12px', borderRadius: 'var(--radius-sm)', background: 'var(--success-bg)', color: 'var(--success-color)', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
-                  <CheckCircle size={16} /> ¡Respuesta publicada en la diapositiva en vivo!
+                  <CheckCircle size={16} /> ¡Respuesta publicada en vivo!
                 </div>
               )}
             </form>
           </div>
         )}
 
-        {/* Responses Feed for current slide */}
+        {/* 3. Cards of audience responses appearing live */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Flame size={14} color="var(--warning-color)" /> Respuestas enviadas por la audiencia ({currentSlideResponses.length})
+            <Flame size={14} color="var(--warning-color)" /> Respuestas enviadas en esta diapositiva ({currentSlideResponses.length})
           </div>
 
           {currentSlideResponses.length === 0 ? (
@@ -242,7 +229,8 @@ export const ParticipantSlideView: React.FC<ParticipantSlideViewProps> = ({
                     alignItems: 'flex-start',
                     justifyContent: 'space-between',
                     gap: '12px',
-                    borderLeft: r.isPinned ? '3px solid var(--warning-color)' : '1px solid var(--border-color)'
+                    borderLeft: r.isPinned ? '3px solid var(--warning-color)' : '1px solid var(--border-color)',
+                    background: 'var(--bg-secondary)'
                   }}
                 >
                   <div style={{ flex: 1 }}>
