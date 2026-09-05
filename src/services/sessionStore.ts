@@ -30,39 +30,25 @@ export type Question = SlideResponse;
 export type QASession = QAPresentation;
 
 const STORAGE_KEYS = {
-  PRESENTATIONS: 'respla_presentations_v4',
-  ACTIVE_PRESENTATION_ID: 'respla_active_presentation_id_v4',
-  RESPONSES: 'respla_slide_responses_v4',
-  USER_VOTES: 'respla_user_votes_v4',
+  PRESENTATIONS: 'respla_presentations_v5',
+  ACTIVE_PRESENTATION_ID: 'respla_active_presentation_id_v5',
+  RESPONSES: 'respla_slide_responses_v5',
+  USER_VOTES: 'respla_user_votes_v5',
 };
 
-const syncChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('respla_qa_sync_v4') : null;
+const syncChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('respla_qa_sync_v5') : null;
 
+let isInitialized = false;
 let isPollingStarted = false;
-
-const initialDefaultPresentation: QAPresentation = {
-  id: 'pres-1',
-  title: 'Encuentro JEA 2026',
-  code: 'JEA-2026',
-  createdAt: Date.now(),
-  activeSlideIndex: 0,
-  status: 'active',
-  slides: [
-    {
-      id: 'slide-1',
-      prompt: '¿Qué preguntas o inquietudes tienes para compartir hoy?',
-      description: 'Envía tus respuestas o dudas de manera 100% anónima escaneando el QR.'
-    }
-  ]
-};
+let lastSyncChecksum = '';
 
 export const sessionStore = {
   init() {
+    if (isInitialized) return;
+    isInitialized = true;
+
     if (!localStorage.getItem(STORAGE_KEYS.PRESENTATIONS)) {
-      localStorage.setItem(STORAGE_KEYS.PRESENTATIONS, JSON.stringify([initialDefaultPresentation]));
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.ACTIVE_PRESENTATION_ID)) {
-      localStorage.setItem(STORAGE_KEYS.ACTIVE_PRESENTATION_ID, 'pres-1');
+      localStorage.setItem(STORAGE_KEYS.PRESENTATIONS, JSON.stringify([]));
     }
     if (!localStorage.getItem(STORAGE_KEYS.RESPONSES)) {
       localStorage.setItem(STORAGE_KEYS.RESPONSES, JSON.stringify([]));
@@ -77,7 +63,7 @@ export const sessionStore = {
       isPollingStarted = true;
       setInterval(() => {
         this.syncFromRemote();
-      }, 1500);
+      }, 2500);
     }
   },
 
@@ -90,74 +76,69 @@ export const sessionStore = {
 
   async syncFromRemote() {
     try {
-      const activeId = this.getActivePresentationId();
-      const currentLocalPresentations: QAPresentation[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.PRESENTATIONS) || '[]');
-      const localActivePres = currentLocalPresentations.find(p => p.id === activeId);
-      
       const resPres = await fetch('/api/sessions');
+      let presChanged = false;
+      let respChanged = false;
+
       if (resPres.ok) {
         const remotePres: QAPresentation[] = await resPres.json();
-        if (remotePres && remotePres.length > 0) {
-          // Merge remote presentations, preserving local activeSlideIndex if local was recently updated
-          const presMap = new Map<string, QAPresentation>();
-          remotePres.forEach(p => presMap.set(p.id, p));
-          currentLocalPresentations.forEach(p => {
-            if (!presMap.has(p.id)) {
-              presMap.set(p.id, p);
-            } else if (localActivePres && p.id === localActivePres.id) {
-              // If remote activeSlideIndex is stale, keep local
-              const existingRemote = presMap.get(p.id)!;
-              if (existingRemote.activeSlideIndex !== p.activeSlideIndex && p.activeSlideIndex !== undefined) {
-                existingRemote.activeSlideIndex = p.activeSlideIndex;
-              }
-              if (p.slides && p.slides.length > existingRemote.slides.length) {
-                existingRemote.slides = p.slides;
-              }
+        if (remotePres && Array.isArray(remotePres)) {
+          const currentStr = localStorage.getItem(STORAGE_KEYS.PRESENTATIONS) || '[]';
+          const remoteStr = JSON.stringify(remotePres);
+          if (currentStr !== remoteStr) {
+            localStorage.setItem(STORAGE_KEYS.PRESENTATIONS, remoteStr);
+            presChanged = true;
+          }
+        }
+      }
+
+      const activeId = this.getActivePresentationId();
+      if (activeId) {
+        const resResp = await fetch(`/api/questions?presentationId=${activeId}`);
+        if (resResp.ok) {
+          const remoteResp: SlideResponse[] = await resResp.json();
+          if (remoteResp && Array.isArray(remoteResp)) {
+            const currentRespStr = localStorage.getItem(STORAGE_KEYS.RESPONSES) || '[]';
+            
+            // Merge with local votes
+            const currentLocal: SlideResponse[] = JSON.parse(currentRespStr);
+            const map = new Map<string, SlideResponse>();
+            currentLocal.forEach(r => map.set(r.id, r));
+            remoteResp.forEach(r => map.set(r.id, r));
+
+            const merged = Array.from(map.values()).sort((a, b) => b.createdAt - a.createdAt);
+            const newRespStr = JSON.stringify(merged);
+            
+            if (currentRespStr !== newRespStr) {
+              localStorage.setItem(STORAGE_KEYS.RESPONSES, newRespStr);
+              respChanged = true;
             }
-          });
-          localStorage.setItem(STORAGE_KEYS.PRESENTATIONS, JSON.stringify(Array.from(presMap.values())));
+          }
         }
       }
 
-      // Sync Responses without EVER losing local responses
-      const resResp = await fetch(`/api/questions?presentationId=${activeId}`);
-      const currentLocalResponses: SlideResponse[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.RESPONSES) || '[]');
-      const respMap = new Map<string, SlideResponse>();
-      
-      // Load local first
-      currentLocalResponses.forEach(r => respMap.set(r.id, r));
-
-      if (resResp.ok) {
-        const remoteResp: SlideResponse[] = await resResp.json();
-        if (remoteResp && Array.isArray(remoteResp)) {
-          remoteResp.forEach(r => respMap.set(r.id, r));
-        }
+      if (presChanged || respChanged) {
+        this.notifySync();
       }
-
-      const mergedResponses = Array.from(respMap.values()).sort((a, b) => b.createdAt - a.createdAt);
-      localStorage.setItem(STORAGE_KEYS.RESPONSES, JSON.stringify(mergedResponses));
-      
-      this.notifySync();
     } catch {
-      // offline fallback
+      // offline
     }
   },
 
   getPresentations(): QAPresentation[] {
-    this.init();
     try {
       return JSON.parse(localStorage.getItem(STORAGE_KEYS.PRESENTATIONS) || '[]');
     } catch {
-      return [initialDefaultPresentation];
+      return [];
     }
   },
 
   getActivePresentationId(): string {
-    this.init();
-    return localStorage.getItem(STORAGE_KEYS.ACTIVE_PRESENTATION_ID) || 'pres-1';
+    return localStorage.getItem(STORAGE_KEYS.ACTIVE_PRESENTATION_ID) || '';
   },
 
   setActivePresentationId(id: string) {
+    if (!id) return;
     localStorage.setItem(STORAGE_KEYS.ACTIVE_PRESENTATION_ID, id);
     this.notifySync();
     this.syncFromRemote();
@@ -166,6 +147,7 @@ export const sessionStore = {
   getActivePresentation(): QAPresentation | undefined {
     const activeId = this.getActivePresentationId();
     const presentations = this.getPresentations();
+    if (!presentations || presentations.length === 0) return undefined;
     return presentations.find(p => p.id === activeId || p.code === activeId) || presentations[0];
   },
 
@@ -264,7 +246,6 @@ export const sessionStore = {
 
   // Slide Responses
   getResponses(presentationId: string, slideId?: string): SlideResponse[] {
-    this.init();
     try {
       const all: SlideResponse[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.RESPONSES) || '[]');
       return all.filter(r => r.presentationId === presentationId && (!slideId || r.slideId === slideId));
